@@ -1,5 +1,4 @@
-//go:build js && wasm
-// +build js,wasm
+// +build js
 
 package glfw
 
@@ -10,10 +9,12 @@ import (
 	"log"
 	"net/http"
 	"runtime"
-	"syscall/js"
+
+	"github.com/gopherjs/gopherjs/js"
+	"honnef.co/go/js/dom"
 )
 
-var document = js.Global().Get("document")
+var document = dom.GetWindow().Document().(dom.HTMLDocument)
 
 var contextWatcher ContextWatcher
 
@@ -28,32 +29,37 @@ func Terminate() error {
 
 func CreateWindow(_, _ int, title string, monitor *Monitor, share *Window) (*Window, error) {
 	// THINK: Consider https://developer.mozilla.org/en-US/docs/Web/API/Window.open?
-	body := document.Get("body")
-	if body.Equal(js.Null()) {
-		body = document.Call("createElement", "body")
-		document.Set("body", body)
+
+	// HACK: Go fullscreen?
+	width := dom.GetWindow().InnerWidth()
+	height := dom.GetWindow().InnerHeight()
+
+	canvas := document.CreateElement("canvas").(*dom.HTMLCanvasElement)
+
+	devicePixelRatio := js.Global.Get("devicePixelRatio").Float()
+	canvas.Width = int(float64(width)*devicePixelRatio + 0.5)   // Nearest non-negative int.
+	canvas.Height = int(float64(height)*devicePixelRatio + 0.5) // Nearest non-negative int.
+	canvas.Style().SetProperty("width", fmt.Sprintf("%vpx", width), "")
+	canvas.Style().SetProperty("height", fmt.Sprintf("%vpx", height), "")
+
+	if js.Global.Get("document").Get("body") == nil {
+		body := js.Global.Get("document").Call("createElement", "body")
+		js.Global.Get("document").Set("body", body)
 		log.Println("Creating body, since it doesn't exist.")
 	}
+	document.Body().Style().SetProperty("margin", "0", "")
+	document.Body().AppendChild(canvas)
 
-	body.Get("style").Call("setProperty", "margin", "0")
+	document.SetTitle(title)
 
-	canvas := document.Call("createElement", "canvas")
-
-	body.Call("appendChild", canvas)
-
-	// HACK: Go fullscreen /* canvas being sized asynchronously, we are using body the window inner Width/Height */?
-	width := js.Global().Get("innerWidth").Int()
-	height := js.Global().Get("innerHeight").Int()
-
-	devicePixelRatio := js.Global().Get("devicePixelRatio").Float()
-	canvas.Set("width", int(float64(width)*devicePixelRatio+0.5))   // Nearest non-negative int.
-	canvas.Set("height", int(float64(height)*devicePixelRatio+0.5)) // Nearest non-negative int.
-	log.Println("Canvas: ", width, height, devicePixelRatio)
-
-	canvas.Get("style").Call("setProperty", "width", "100vw")
-	canvas.Get("style").Call("setProperty", "height", "100vh")
-
-	document.Set("title", title)
+	// DEBUG: Add framebuffer information div.
+	if false {
+		//canvas.Height -= 30
+		text := document.CreateElement("div")
+		textContent := fmt.Sprintf("%v %v (%v) @%v", dom.GetWindow().InnerWidth(), canvas.Width, float64(width)*devicePixelRatio, devicePixelRatio)
+		text.SetTextContent(textContent)
+		document.Body().AppendChild(text)
+	}
 
 	// Use glfw hints.
 	attrs := defaultAttributes()
@@ -69,24 +75,23 @@ func CreateWindow(_, _ int, title string, monitor *Monitor, share *Window) (*Win
 	attrs.FailIfMajorPerformanceCaveat = (hints[FailIfMajorPerformanceCaveat] > 0)
 
 	// Create GL context.
-	context, err := newContext(canvas, attrs)
-	if context.Equal(js.Value{}) {
+	context, err := newContext(canvas.Underlying(), attrs)
+	if err != nil {
 		return nil, err
 	}
 
 	w := &Window{
-		canvas:           canvas,
-		context:          context,
-		devicePixelRatio: devicePixelRatio,
+		canvas:  canvas,
+		context: context,
 	}
 
-	if w.canvas.Get("requestPointerLock").Equal(js.Undefined()) ||
-		document.Get("exitPointerLock").Equal(js.Undefined()) {
+	if w.canvas.Underlying().Get("requestPointerLock") == js.Undefined ||
+		document.Underlying().Get("exitPointerLock") == js.Undefined {
 
 		w.missing.pointerLock = true
 	}
-	if w.canvas.Get("webkitRequestFullscreen").Equal(js.Undefined()) ||
-		document.Get("webkitExitFullscreen").Equal(js.Undefined()) {
+	if w.canvas.Underlying().Get("webkitRequestFullscreen") == js.Undefined ||
+		document.Underlying().Get("webkitExitFullscreen") == js.Undefined {
 
 		w.missing.fullscreen = true
 	}
@@ -99,36 +104,34 @@ func CreateWindow(_, _ int, title string, monitor *Monitor, share *Window) (*Win
 		}
 	}
 
-	js.Global().Call("addEventListener", "resize", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	dom.GetWindow().AddEventListener("resize", false, func(event dom.Event) {
 		// HACK: Go fullscreen?
-		width := canvas.Get("clientWidth").Int()
-		height := canvas.Get("clientHeight").Int()
+		width := dom.GetWindow().InnerWidth()
+		height := dom.GetWindow().InnerHeight()
 
-		w.devicePixelRatio = js.Global().Get("devicePixelRatio").Float()
-		canvas.Set("width", int(float64(width)*devicePixelRatio+0.5))   // Nearest non-negative int.
-		canvas.Set("height", int(float64(height)*devicePixelRatio+0.5)) // Nearest non-negative int.
-		log.Println("Canvas: ", float64(width), float64(height), devicePixelRatio)
+		devicePixelRatio := js.Global.Get("devicePixelRatio").Float()
+		w.canvas.Width = int(float64(width)*devicePixelRatio + 0.5)   // Nearest non-negative int.
+		w.canvas.Height = int(float64(height)*devicePixelRatio + 0.5) // Nearest non-negative int.
+		w.canvas.Style().SetProperty("width", fmt.Sprintf("%vpx", width), "")
+		w.canvas.Style().SetProperty("height", fmt.Sprintf("%vpx", height), "")
 
 		if w.framebufferSizeCallback != nil {
 			// TODO: Callbacks may be blocking so they need to happen asyncronously. However,
 			//       GLFW API promises the callbacks will occur from one thread (i.e., sequentially), so may want to do that.
-			log.Println("framebufferSizeCallback : ", w.canvas.Get("width").Int(), w.canvas.Get("height").Int())
-			go w.framebufferSizeCallback(w, w.canvas.Get("width").Int(), w.canvas.Get("height").Int())
+			go w.framebufferSizeCallback(w, w.canvas.Width, w.canvas.Height)
 		}
 		if w.sizeCallback != nil {
-			boundingW, boundingH := w.GetSize()
-			log.Println("sizeCallback : ", boundingW, boundingH)
-			go w.sizeCallback(w, boundingW, boundingH)
+			go w.sizeCallback(w, int(w.canvas.GetBoundingClientRect().Width), int(w.canvas.GetBoundingClientRect().Height))
 		}
-		return nil
-	}))
+	})
 
-	document.Call("addEventListener", "keydown", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		ke := args[0]
+	document.AddEventListener("keydown", false, func(event dom.Event) {
 		w.goFullscreenIfRequested()
 
+		ke := event.(*dom.KeyboardEvent)
+
 		action := Press
-		if ke.Get("repeat").Bool() {
+		if ke.Repeat {
 			action = Repeat
 		}
 
@@ -147,20 +150,12 @@ func CreateWindow(_, _ int, title string, monitor *Monitor, share *Window) (*Win
 			go w.keyCallback(w, key, -1, action, mods)
 		}
 
-		if w.charCallback != nil {
-			keyStr := ke.Get("key").String()
-			if len(keyStr) == 1 {
-				keyRune := []rune(keyStr)
-				go w.charCallback(w, keyRune[0])
-			}
-		}
-
-		ke.Call("preventDefault")
-		return nil
-	}))
-	document.Call("addEventListener", "keyup", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		ke := args[0]
+		ke.PreventDefault()
+	})
+	document.AddEventListener("keyup", false, func(event dom.Event) {
 		w.goFullscreenIfRequested()
+
+		ke := event.(*dom.KeyboardEvent)
 
 		key := toKey(ke)
 
@@ -177,131 +172,117 @@ func CreateWindow(_, _ int, title string, monitor *Monitor, share *Window) (*Win
 			go w.keyCallback(w, key, -1, Release, mods)
 		}
 
-		ke.Call("preventDefault")
-		return nil
-	}))
-	document.Call("addEventListener", "mousedown", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		me := args[0]
+		ke.PreventDefault()
+	})
+
+	document.AddEventListener("mousedown", false, func(event dom.Event) {
 		w.goFullscreenIfRequested()
 
-		button := me.Get("button").Int()
-		if !(button >= 0 && button <= 2) {
-			return nil
+		me := event.(*dom.MouseEvent)
+		if !(me.Button >= 0 && me.Button <= 2) {
+			return
 		}
 
-		w.mouseButton[button] = Press
+		w.mouseButton[me.Button] = Press
 		if w.mouseButtonCallback != nil {
-			go w.mouseButtonCallback(w, MouseButton(button), Press, 0)
+			go w.mouseButtonCallback(w, MouseButton(me.Button), Press, 0)
 		}
 
-		me.Call("preventDefault")
-		return nil
-	}))
-	document.Call("addEventListener", "mouseup", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		me := args[0]
+		me.PreventDefault()
+	})
+	document.AddEventListener("mouseup", false, func(event dom.Event) {
 		w.goFullscreenIfRequested()
 
-		button := me.Get("button").Int()
-		if !(button >= 0 && button <= 2) {
-			return nil
+		me := event.(*dom.MouseEvent)
+		if !(me.Button >= 0 && me.Button <= 2) {
+			return
 		}
 
-		w.mouseButton[button] = Release
+		w.mouseButton[me.Button] = Release
 		if w.mouseButtonCallback != nil {
-			go w.mouseButtonCallback(w, MouseButton(button), Release, 0)
+			go w.mouseButtonCallback(w, MouseButton(me.Button), Release, 0)
 		}
 
-		me.Call("preventDefault")
-		return nil
-	}))
-	document.Call("addEventListener", "contextmenu", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		me := args[0]
-		me.Call("preventDefault")
-		return nil
-	}))
+		me.PreventDefault()
+	})
+	document.AddEventListener("contextmenu", false, func(event dom.Event) {
+		event.PreventDefault()
+	})
 
-	document.Call("addEventListener", "mousemove", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		me := args[0]
+	document.AddEventListener("mousemove", false, func(event dom.Event) {
+		me := event.(*dom.MouseEvent)
+
 		var movementX, movementY float64
 		if !w.missing.pointerLock {
-			movementX = me.Get("movementX").Float()
-			movementY = me.Get("movementY").Float()
+			movementX = float64(me.MovementX)
+			movementY = float64(me.MovementY)
 		} else {
-			movementX = me.Get("clientX").Float() - w.cursorPos[0]
-			movementY = me.Get("clientY").Float() - w.cursorPos[1]
+			movementX = float64(me.ClientX) - w.cursorPos[0]
+			movementY = float64(me.ClientY) - w.cursorPos[1]
 		}
-		movementX *= w.devicePixelRatio
-		movementY *= w.devicePixelRatio
 
-		w.cursorPos[0], w.cursorPos[1] = me.Get("clientX").Float()*w.devicePixelRatio, me.Get("clientY").Float()*w.devicePixelRatio
+		w.cursorPos[0], w.cursorPos[1] = float64(me.ClientX), float64(me.ClientY)
 		if w.cursorPosCallback != nil {
 			go w.cursorPosCallback(w, w.cursorPos[0], w.cursorPos[1])
 		}
 		if w.mouseMovementCallback != nil {
 			go w.mouseMovementCallback(w, w.cursorPos[0], w.cursorPos[1], movementX, movementY)
 		}
-		me.Call("preventDefault")
-		return nil
-	}))
-	document.Call("addEventListener", "wheel", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		we := args[0]
 
-		deltaX := we.Get("deltaX").Float()
-		deltaY := we.Get("deltaY").Float()
+		me.PreventDefault()
+	})
+	document.AddEventListener("wheel", false, func(event dom.Event) {
+		we := event.(*dom.WheelEvent)
 
 		var multiplier float64
-		/*
-			switch we.DeltaMode {
-			case dom.DeltaPixel:
-				multiplier = 0.1
-			case dom.DeltaLine:
-				multiplier = 1
-			default:
-				log.Println("unsupported WheelEvent.DeltaMode:", we.DeltaMode)
-				multiplier = 1
-			}*/
-		multiplier = 1
+		switch we.DeltaMode {
+		case dom.DeltaPixel:
+			multiplier = 0.1
+		case dom.DeltaLine:
+			multiplier = 1
+		default:
+			log.Println("unsupported WheelEvent.DeltaMode:", we.DeltaMode)
+			multiplier = 1
+		}
 
 		if w.scrollCallback != nil {
-			go w.scrollCallback(w, -deltaX*multiplier, -deltaY*multiplier)
+			go w.scrollCallback(w, -we.DeltaX*multiplier, -we.DeltaY*multiplier)
 		}
 
-		we.Call("preventDefault")
-		return nil
-	}))
+		we.PreventDefault()
+	})
 
-	/*
-		// Hacky mouse-emulation-via-touch.
-		touchHandler := func(event dom.Event) {
-			w.goFullscreenIfRequested()
+	// Hacky mouse-emulation-via-touch.
+	touchHandler := func(event dom.Event) {
+		w.goFullscreenIfRequested()
 
-			te := event.(*dom.TouchEvent)
+		te := event.(*dom.TouchEvent)
 
-			touches := te.Get("touches")
-			if touches.Length() > 0 {
-				t := touches.Index(0)
+		touches := te.Get("touches")
+		if touches.Length() > 0 {
+			t := touches.Index(0)
 
-				if w.touches != nil && w.touches.Length() > 0 { // This event is a movement only if we previously had > 0 touch points.
-					if w.mouseMovementCallback != nil {
-						go w.mouseMovementCallback(w, t.Get("clientX").Float(), t.Get("clientY").Float(), t.Get("clientX").Float()-w.cursorPos[0], t.Get("clientY").Float()-w.cursorPos[1])
-					}
-				}
-
-				w.cursorPos[0], w.cursorPos[1] = t.Get("clientX").Float(), t.Get("clientY").Float()
-				if w.cursorPosCallback != nil {
-					go w.cursorPosCallback(w, w.cursorPos[0], w.cursorPos[1])
+			if w.touches != nil && w.touches.Length() > 0 { // This event is a movement only if we previously had > 0 touch points.
+				if w.mouseMovementCallback != nil {
+					go w.mouseMovementCallback(w, t.Get("clientX").Float(), t.Get("clientY").Float(), t.Get("clientX").Float()-w.cursorPos[0], t.Get("clientY").Float()-w.cursorPos[1])
 				}
 			}
-			w.touches = touches
 
-			te.PreventDefault()
+			w.cursorPos[0], w.cursorPos[1] = t.Get("clientX").Float(), t.Get("clientY").Float()
+			if w.cursorPosCallback != nil {
+				go w.cursorPosCallback(w, w.cursorPos[0], w.cursorPos[1])
+			}
 		}
-		document.AddEventListener("touchstart", false, touchHandler)
-		document.AddEventListener("touchmove", false, touchHandler)
-		document.AddEventListener("touchend", false, touchHandler)*/
+		w.touches = touches
+
+		te.PreventDefault()
+	}
+	document.AddEventListener("touchstart", false, touchHandler)
+	document.AddEventListener("touchmove", false, touchHandler)
+	document.AddEventListener("touchend", false, touchHandler)
 
 	// Request first animation frame.
-	js.Global().Call("requestAnimationFrame", animationFrameCallback)
+	js.Global.Call("requestAnimationFrame", animationFrame)
 
 	return w, nil
 }
@@ -312,8 +293,8 @@ func SwapInterval(interval int) error {
 }
 
 type Window struct {
-	canvas            js.Value
-	context           js.Value
+	canvas            *dom.HTMLCanvasElement
+	context           *js.Object
 	requestFullscreen bool // requestFullscreen is set to true when fullscreen should be entered as soon as possible (in a user input handler).
 	fullscreen        bool // fullscreen is true if we're currently in fullscreen mode.
 
@@ -322,8 +303,6 @@ type Window struct {
 		pointerLock bool // Pointer Lock API.
 		fullscreen  bool // Fullscreen API.
 	}
-
-	devicePixelRatio float64
 
 	cursorMode  int
 	cursorPos   [2]float64
@@ -336,11 +315,10 @@ type Window struct {
 	mouseButtonCallback     MouseButtonCallback
 	keyCallback             KeyCallback
 	scrollCallback          ScrollCallback
-	charCallback            CharCallback
 	framebufferSizeCallback FramebufferSizeCallback
 	sizeCallback            SizeCallback
 
-	touches js.Value // Hacky mouse-emulation-via-touch.
+	touches *js.Object // Hacky mouse-emulation-via-touch.
 }
 
 func (w *Window) SetPos(xpos, ypos int) {
@@ -358,7 +336,7 @@ func (w *Window) goFullscreenIfRequested() {
 		return
 	}
 	w.requestFullscreen = false
-	w.canvas.Call("webkitRequestFullscreen")
+	w.canvas.Underlying().Call("webkitRequestFullscreen")
 	w.fullscreen = true
 }
 
@@ -428,9 +406,7 @@ func (w *Window) SetKeyCallback(cbfun KeyCallback) (previous KeyCallback) {
 type CharCallback func(w *Window, char rune)
 
 func (w *Window) SetCharCallback(cbfun CharCallback) (previous CharCallback) {
-	w.charCallback = cbfun
-
-	// TODO: Handle previous.
+	// TODO.
 	return nil
 }
 
@@ -462,16 +438,15 @@ func (w *Window) SetFramebufferSizeCallback(cbfun FramebufferSizeCallback) (prev
 }
 
 func (w *Window) GetSize() (width, height int) {
-	width = int(w.canvas.Get("clientWidth").Float()*w.devicePixelRatio + 0.5)
-	height = int(w.canvas.Get("clientHeight").Float()*w.devicePixelRatio + 0.5)
+	// TODO: See if dpi adjustments need to be made.
+	fmt.Println("Window.GetSize:", w.canvas.GetBoundingClientRect().Width, w.canvas.GetBoundingClientRect().Height,
+		"->", int(w.canvas.GetBoundingClientRect().Width), int(w.canvas.GetBoundingClientRect().Height))
 
-	log.Println("GetSize: ", width, height)
-	return width, height
+	return int(w.canvas.GetBoundingClientRect().Width), int(w.canvas.GetBoundingClientRect().Height)
 }
 
 func (w *Window) GetFramebufferSize() (width, height int) {
-	log.Println("GetFramebufferSize: ", w.canvas.Get("width").Int(), w.canvas.Get("height").Int())
-	return w.canvas.Get("width").Int(), w.canvas.Get("height").Int()
+	return w.canvas.Width, w.canvas.Height
 }
 
 func (w *Window) GetPos() (x, y int) {
@@ -491,18 +466,16 @@ func (w *Window) SetShouldClose(value bool) {
 
 func (w *Window) SwapBuffers() error {
 	<-animationFrameChan
-	js.Global().Call("requestAnimationFrame", animationFrameCallback)
+	js.Global.Call("requestAnimationFrame", animationFrame)
 
 	return nil
 }
 
 var animationFrameChan = make(chan struct{}, 1)
 
-var animationFrameCallback = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+func animationFrame() {
 	animationFrameChan <- struct{}{}
-
-	return nil
-})
+}
 
 func (w *Window) GetCursorPos() (x, y float64) {
 	return w.cursorPos[0], w.cursorPos[1]
@@ -529,7 +502,7 @@ func (w *Window) GetMouseButton(button MouseButton) Action {
 	}
 
 	// Hacky mouse-emulation-via-touch.
-	if !w.touches.Equal(js.Value{}) {
+	if w.touches != nil {
 		switch button {
 		case MouseButton1:
 			if w.touches.Length() == 1 || w.touches.Length() == 3 {
@@ -569,17 +542,17 @@ func (w *Window) SetInputMode(mode InputMode, value int) {
 		switch value {
 		case CursorNormal:
 			w.cursorMode = value
-			document.Call("exitPointerLock")
-			w.canvas.Get("style").Call("setProperty", "cursor", "initial")
+			document.Underlying().Call("exitPointerLock")
+			w.canvas.Style().SetProperty("cursor", "initial", "")
 			return
 		case CursorHidden:
 			w.cursorMode = value
-			document.Call("exitPointerLock")
-			w.canvas.Get("style").Call("setProperty", "cursor", "none")
+			document.Underlying().Call("exitPointerLock")
+			w.canvas.Style().SetProperty("cursor", "none", "")
 			return
 		case CursorDisabled:
 			w.cursorMode = value
-			w.canvas.Call("requestPointerLock")
+			w.canvas.Underlying().Call("requestPointerLock")
 			return
 		default:
 			panic(ErrInvalidValue)
@@ -722,44 +695,38 @@ const (
 )
 
 // toKey extracts Key from given KeyboardEvent.
-func toKey(ke js.Value) Key {
-	// TODO: Factor out into DOM package.
-	const (
-		KeyLocationLeft  = 1
-		KeyLocationRight = 2
-	)
-
-	key := Key(ke.Get("keyCode").Int())
+func toKey(ke *dom.KeyboardEvent) Key {
+	key := Key(ke.KeyCode)
 	switch {
-	case key == 16 && ke.Get("location").Int() == KeyLocationLeft:
+	case key == 16 && ke.Location == dom.KeyLocationLeft:
 		key = KeyLeftShift
-	case key == 16 && ke.Get("location").Int() == KeyLocationRight:
+	case key == 16 && ke.Location == dom.KeyLocationRight:
 		key = KeyRightShift
-	case key == 17 && ke.Get("location").Int() == KeyLocationLeft:
+	case key == 17 && ke.Location == dom.KeyLocationLeft:
 		key = KeyLeftControl
-	case key == 17 && ke.Get("location").Int() == KeyLocationRight:
+	case key == 17 && ke.Location == dom.KeyLocationRight:
 		key = KeyRightControl
-	case key == 18 && ke.Get("location").Int() == KeyLocationLeft:
+	case key == 18 && ke.Location == dom.KeyLocationLeft:
 		key = KeyLeftAlt
-	case key == 18 && ke.Get("location").Int() == KeyLocationRight:
+	case key == 18 && ke.Location == dom.KeyLocationRight:
 		key = KeyRightAlt
 	}
 	return key
 }
 
 // toModifierKey extracts ModifierKey from given KeyboardEvent.
-func toModifierKey(ke js.Value) ModifierKey {
+func toModifierKey(ke *dom.KeyboardEvent) ModifierKey {
 	mods := ModifierKey(0)
-	if ke.Get("shiftKey").Bool() {
+	if ke.ShiftKey {
 		mods += ModShift
 	}
-	if ke.Get("ctrlKey").Bool() {
+	if ke.CtrlKey {
 		mods += ModControl
 	}
-	if ke.Get("altKey").Bool() {
+	if ke.AltKey {
 		mods += ModAlt
 	}
-	if ke.Get("metaKey").Bool() {
+	if ke.MetaKey {
 		mods += ModSuper
 	}
 	return mods
@@ -791,8 +758,6 @@ const (
 	CursorMode InputMode = iota
 	StickyKeysMode
 	StickyMouseButtonsMode
-	LockKeyMods
-	RawMouseMotion
 )
 
 const (
@@ -847,7 +812,7 @@ func (w *Window) GetClipboardString() (string, error) {
 }
 
 func (w *Window) SetTitle(title string) {
-	document.Set("title", title)
+	document.SetTitle(title)
 }
 
 func (w *Window) Show() {
@@ -859,12 +824,12 @@ func (w *Window) Hide() {
 }
 
 func (w *Window) Destroy() {
-	document.Get("body").Call("removeChild", w.canvas)
+	document.Body().RemoveChild(w.canvas)
 	if w.fullscreen {
 		if w.missing.fullscreen {
 			log.Println("warning: Fullscreen API unsupported")
 		} else {
-			document.Call("webkitExitFullscreen")
+			document.Underlying().Call("webkitExitFullscreen")
 			w.fullscreen = false
 		}
 	}

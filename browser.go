@@ -1,3 +1,4 @@
+//go:build js && !wasm
 // +build js,!wasm
 
 package glfw
@@ -81,8 +82,9 @@ func CreateWindow(_, _ int, title string, monitor *Monitor, share *Window) (*Win
 	}
 
 	w := &Window{
-		canvas:  canvas,
-		context: context,
+		canvas:           canvas,
+		context:          context,
+		devicePixelRatio: devicePixelRatio,
 	}
 
 	if w.canvas.Underlying().Get("requestPointerLock") == js.Undefined ||
@@ -121,7 +123,8 @@ func CreateWindow(_, _ int, title string, monitor *Monitor, share *Window) (*Win
 			go w.framebufferSizeCallback(w, w.canvas.Width, w.canvas.Height)
 		}
 		if w.sizeCallback != nil {
-			go w.sizeCallback(w, int(w.canvas.GetBoundingClientRect().Width), int(w.canvas.GetBoundingClientRect().Height))
+			boundingW, boundingH := w.GetSize()
+			go w.sizeCallback(w, boundingW, boundingH)
 		}
 	})
 
@@ -148,6 +151,13 @@ func CreateWindow(_, _ int, title string, monitor *Monitor, share *Window) (*Win
 			mods := toModifierKey(ke)
 
 			go w.keyCallback(w, key, -1, action, mods)
+		}
+
+		if w.charCallback != nil {
+			if len(ke.key) == 1 {
+				keyRune := []rune(ke.key)
+				go w.charCallback(w, keyRune[0])
+			}
 		}
 
 		ke.PreventDefault()
@@ -304,6 +314,8 @@ type Window struct {
 		fullscreen  bool // Fullscreen API.
 	}
 
+	devicePixelRatio float64
+
 	cursorMode  int
 	cursorPos   [2]float64
 	mouseButton [3]Action
@@ -314,6 +326,7 @@ type Window struct {
 	mouseMovementCallback   MouseMovementCallback
 	mouseButtonCallback     MouseButtonCallback
 	keyCallback             KeyCallback
+	charCallback            CharCallback
 	scrollCallback          ScrollCallback
 	framebufferSizeCallback FramebufferSizeCallback
 	sizeCallback            SizeCallback
@@ -406,7 +419,9 @@ func (w *Window) SetKeyCallback(cbfun KeyCallback) (previous KeyCallback) {
 type CharCallback func(w *Window, char rune)
 
 func (w *Window) SetCharCallback(cbfun CharCallback) (previous CharCallback) {
-	// TODO.
+	w.charCallback = cbfun
+
+	// TODO: Handle previous.
 	return nil
 }
 
@@ -438,11 +453,10 @@ func (w *Window) SetFramebufferSizeCallback(cbfun FramebufferSizeCallback) (prev
 }
 
 func (w *Window) GetSize() (width, height int) {
-	// TODO: See if dpi adjustments need to be made.
-	fmt.Println("Window.GetSize:", w.canvas.GetBoundingClientRect().Width, w.canvas.GetBoundingClientRect().Height,
-		"->", int(w.canvas.GetBoundingClientRect().Width), int(w.canvas.GetBoundingClientRect().Height))
+	width = int(w.canvas.GetBoundingClientRect().Width*w.devicePixelRatio + 0.5)
+	height = int(w.canvas.GetBoundingClientRect().Height*w.devicePixelRatio + 0.5)
 
-	return int(w.canvas.GetBoundingClientRect().Width), int(w.canvas.GetBoundingClientRect().Height)
+	return width, height
 }
 
 func (w *Window) GetFramebufferSize() (width, height int) {
@@ -758,6 +772,8 @@ const (
 	CursorMode InputMode = iota
 	StickyKeysMode
 	StickyMouseButtonsMode
+	LockKeyMods
+	RawMouseMotion
 )
 
 const (
