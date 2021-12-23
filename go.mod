@@ -1,4 +1,4 @@
-module fyne.io/glfw-js
+module github.com/fyne-io/glfw-js
 
 go 1.14
 
