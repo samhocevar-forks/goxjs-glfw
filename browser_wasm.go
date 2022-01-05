@@ -32,7 +32,6 @@ func CreateWindow(_, _ int, title string, monitor *Monitor, share *Window) (*Win
 	if body.Equal(js.Null()) {
 		body = document.Call("createElement", "body")
 		document.Set("body", body)
-		log.Println("Creating body, since it doesn't exist.")
 	}
 
 	body.Get("style").Call("setProperty", "margin", "0")
@@ -48,7 +47,6 @@ func CreateWindow(_, _ int, title string, monitor *Monitor, share *Window) (*Win
 	devicePixelRatio := js.Global().Get("devicePixelRatio").Float()
 	canvas.Set("width", int(float64(width)*devicePixelRatio+0.5))   // Nearest non-negative int.
 	canvas.Set("height", int(float64(height)*devicePixelRatio+0.5)) // Nearest non-negative int.
-	log.Println("Canvas: ", width, height, devicePixelRatio)
 
 	canvas.Get("style").Call("setProperty", "width", "100vw")
 	canvas.Get("style").Call("setProperty", "height", "100vh")
@@ -107,17 +105,14 @@ func CreateWindow(_, _ int, title string, monitor *Monitor, share *Window) (*Win
 		w.devicePixelRatio = js.Global().Get("devicePixelRatio").Float()
 		canvas.Set("width", int(float64(width)*devicePixelRatio+0.5))   // Nearest non-negative int.
 		canvas.Set("height", int(float64(height)*devicePixelRatio+0.5)) // Nearest non-negative int.
-		log.Println("Canvas: ", float64(width), float64(height), devicePixelRatio)
 
 		if w.framebufferSizeCallback != nil {
 			// TODO: Callbacks may be blocking so they need to happen asyncronously. However,
 			//       GLFW API promises the callbacks will occur from one thread (i.e., sequentially), so may want to do that.
-			log.Println("framebufferSizeCallback : ", w.canvas.Get("width").Int(), w.canvas.Get("height").Int())
 			go w.framebufferSizeCallback(w, w.canvas.Get("width").Int(), w.canvas.Get("height").Int())
 		}
 		if w.sizeCallback != nil {
-			boundingW, boundingH := w.GetSize()
-			log.Println("sizeCallback : ", boundingW, boundingH)
+			boundingW, boundingH := width, height
 			go w.sizeCallback(w, boundingW, boundingH)
 		}
 		return nil
@@ -465,12 +460,10 @@ func (w *Window) GetSize() (width, height int) {
 	width = int(w.canvas.Get("clientWidth").Float()*w.devicePixelRatio + 0.5)
 	height = int(w.canvas.Get("clientHeight").Float()*w.devicePixelRatio + 0.5)
 
-	log.Println("GetSize: ", width, height)
 	return width, height
 }
 
 func (w *Window) GetFramebufferSize() (width, height int) {
-	log.Println("GetFramebufferSize: ", w.canvas.Get("width").Int(), w.canvas.Get("height").Int())
 	return w.canvas.Get("width").Int(), w.canvas.Get("height").Int()
 }
 
