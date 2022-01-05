@@ -562,28 +562,32 @@ var ErrInvalidValue = errors.New("invalid value")
 func (w *Window) SetInputMode(mode InputMode, value int) {
 	switch mode {
 	case CursorMode:
-		if w.missing.pointerLock {
-			log.Println("warning: Pointer Lock API unsupported")
-			return
-		}
-		switch value {
-		case CursorNormal:
-			w.cursorMode = value
-			document.Call("exitPointerLock")
-			w.canvas.Get("style").Call("setProperty", "cursor", "initial")
-			return
-		case CursorHidden:
-			w.cursorMode = value
-			document.Call("exitPointerLock")
-			w.canvas.Get("style").Call("setProperty", "cursor", "none")
-			return
-		case CursorDisabled:
-			w.cursorMode = value
-			w.canvas.Call("requestPointerLock")
-			return
-		default:
-			panic(ErrInvalidValue)
-		}
+		/*
+			// Temporarily disable cursor change
+			if w.missing.pointerLock {
+				log.Println("warning: Pointer Lock API unsupported")
+				return
+			}
+			switch value {
+			case CursorNormal:
+				w.cursorMode = value
+				document.Call("exitPointerLock")
+				w.canvas.Get("style").Call("setProperty", "cursor", "initial")
+				return
+			case CursorHidden:
+				w.cursorMode = value
+				document.Call("exitPointerLock")
+				w.canvas.Get("style").Call("setProperty", "cursor", "none")
+				return
+			case CursorDisabled:
+				w.cursorMode = value
+				w.canvas.Call("requestPointerLock")
+				return
+			default:
+				panic(ErrInvalidValue)
+			}
+		*/
+		return
 	case StickyKeysMode:
 		panic(errors.New("not implemented"))
 	case StickyMouseButtonsMode:
