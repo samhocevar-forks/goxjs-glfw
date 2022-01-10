@@ -1,5 +1,4 @@
-//go:build js && !wasm
-// +build js,!wasm
+// +build js
 
 package glfw
 
@@ -46,6 +45,7 @@ func CreateWindow(_, _ int, title string, monitor *Monitor, share *Window) (*Win
 	if js.Global.Get("document").Get("body") == nil {
 		body := js.Global.Get("document").Call("createElement", "body")
 		js.Global.Get("document").Set("body", body)
+		log.Println("Creating body, since it doesn't exist.")
 	}
 	document.Body().Style().SetProperty("margin", "0", "")
 	document.Body().AppendChild(canvas)
@@ -81,9 +81,8 @@ func CreateWindow(_, _ int, title string, monitor *Monitor, share *Window) (*Win
 	}
 
 	w := &Window{
-		canvas:           canvas,
-		context:          context,
-		devicePixelRatio: devicePixelRatio,
+		canvas:  canvas,
+		context: context,
 	}
 
 	if w.canvas.Underlying().Get("requestPointerLock") == js.Undefined ||
@@ -113,6 +112,8 @@ func CreateWindow(_, _ int, title string, monitor *Monitor, share *Window) (*Win
 		devicePixelRatio := js.Global.Get("devicePixelRatio").Float()
 		w.canvas.Width = int(float64(width)*devicePixelRatio + 0.5)   // Nearest non-negative int.
 		w.canvas.Height = int(float64(height)*devicePixelRatio + 0.5) // Nearest non-negative int.
+		w.canvas.Style().SetProperty("width", fmt.Sprintf("%vpx", width), "")
+		w.canvas.Style().SetProperty("height", fmt.Sprintf("%vpx", height), "")
 
 		if w.framebufferSizeCallback != nil {
 			// TODO: Callbacks may be blocking so they need to happen asyncronously. However,
@@ -120,8 +121,7 @@ func CreateWindow(_, _ int, title string, monitor *Monitor, share *Window) (*Win
 			go w.framebufferSizeCallback(w, w.canvas.Width, w.canvas.Height)
 		}
 		if w.sizeCallback != nil {
-			boundingW, boundingH := width, height
-			go w.sizeCallback(w, boundingW, boundingH)
+			go w.sizeCallback(w, int(w.canvas.GetBoundingClientRect().Width), int(w.canvas.GetBoundingClientRect().Height))
 		}
 	})
 
@@ -148,13 +148,6 @@ func CreateWindow(_, _ int, title string, monitor *Monitor, share *Window) (*Win
 			mods := toModifierKey(ke)
 
 			go w.keyCallback(w, key, -1, action, mods)
-		}
-
-		if w.charCallback != nil {
-			if len(ke.key) == 1 {
-				keyRune := []rune(ke.key)
-				go w.charCallback(w, keyRune[0])
-			}
 		}
 
 		ke.PreventDefault()
@@ -311,8 +304,6 @@ type Window struct {
 		fullscreen  bool // Fullscreen API.
 	}
 
-	devicePixelRatio float64
-
 	cursorMode  int
 	cursorPos   [2]float64
 	mouseButton [3]Action
@@ -323,7 +314,6 @@ type Window struct {
 	mouseMovementCallback   MouseMovementCallback
 	mouseButtonCallback     MouseButtonCallback
 	keyCallback             KeyCallback
-	charCallback            CharCallback
 	scrollCallback          ScrollCallback
 	framebufferSizeCallback FramebufferSizeCallback
 	sizeCallback            SizeCallback
@@ -416,9 +406,7 @@ func (w *Window) SetKeyCallback(cbfun KeyCallback) (previous KeyCallback) {
 type CharCallback func(w *Window, char rune)
 
 func (w *Window) SetCharCallback(cbfun CharCallback) (previous CharCallback) {
-	w.charCallback = cbfun
-
-	// TODO: Handle previous.
+	// TODO.
 	return nil
 }
 
@@ -450,10 +438,11 @@ func (w *Window) SetFramebufferSizeCallback(cbfun FramebufferSizeCallback) (prev
 }
 
 func (w *Window) GetSize() (width, height int) {
-	width = int(w.canvas.GetBoundingClientRect().Width*w.devicePixelRatio + 0.5)
-	height = int(w.canvas.GetBoundingClientRect().Height*w.devicePixelRatio + 0.5)
+	// TODO: See if dpi adjustments need to be made.
+	fmt.Println("Window.GetSize:", w.canvas.GetBoundingClientRect().Width, w.canvas.GetBoundingClientRect().Height,
+		"->", int(w.canvas.GetBoundingClientRect().Width), int(w.canvas.GetBoundingClientRect().Height))
 
-	return width, height
+	return int(w.canvas.GetBoundingClientRect().Width), int(w.canvas.GetBoundingClientRect().Height)
 }
 
 func (w *Window) GetFramebufferSize() (width, height int) {
@@ -769,8 +758,6 @@ const (
 	CursorMode InputMode = iota
 	StickyKeysMode
 	StickyMouseButtonsMode
-	LockKeyMods
-	RawMouseMotion
 )
 
 const (
