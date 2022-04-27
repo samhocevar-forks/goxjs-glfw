@@ -11,6 +11,12 @@ import (
 	"github.com/go-gl/glfw/v3.3/glfw"
 )
 
+const (
+	True     int = glfw.True
+	False    int = glfw.False
+	DontCare int = glfw.DontCare
+)
+
 func init() {
 	runtime.LockOSThread()
 }
@@ -50,6 +56,10 @@ func CreateWindow(width, height int, title string, monitor *Monitor, share *Wind
 	return window, err
 }
 
+func (w *Window) SetAttrib(attrib Hint, value int) {
+	w.Window.SetAttrib(glfw.Hint(attrib), value)
+}
+
 func SwapInterval(interval int) {
 	glfw.SwapInterval(interval)
 }
@@ -77,6 +87,10 @@ type Monitor struct {
 func GetPrimaryMonitor() *Monitor {
 	m := glfw.GetPrimaryMonitor()
 	return &Monitor{Monitor: m}
+}
+
+func (w *Window) SetMonitor(monitor *Monitor, xpos, ypos, width, height, refreshRate int) {
+	w.Window.SetMonitor(monitor.Monitor, xpos, ypos, width, height, refreshRate)
 }
 
 func PollEvents() {
