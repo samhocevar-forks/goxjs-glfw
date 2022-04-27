@@ -208,6 +208,7 @@ func (w *Window) SetInputMode(mode InputMode, value int) {
 type Key glfw.Key
 
 const (
+	KeyUnknown      = Key(glfw.KeyUnknown)
 	KeySpace        = Key(glfw.KeySpace)
 	KeyApostrophe   = Key(glfw.KeyApostrophe)
 	KeyComma        = Key(glfw.KeyComma)
