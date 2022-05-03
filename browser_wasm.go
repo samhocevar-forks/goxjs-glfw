@@ -13,6 +13,12 @@ import (
 	"syscall/js"
 )
 
+const (
+	True     int = 1
+	False    int = 0
+	DontCare int = -1
+)
+
 var document = js.Global().Get("document")
 
 var contextWatcher ContextWatcher
@@ -299,6 +305,10 @@ func CreateWindow(_, _ int, title string, monitor *Monitor, share *Window) (*Win
 	return w, nil
 }
 
+func (w *Window) SetAttrib(attrib Hint, value int) {
+	// TODO: Implement.
+}
+
 func SwapInterval(interval int) error {
 	// TODO: Implement.
 	return nil
@@ -344,6 +354,11 @@ func (w *Window) SetSize(width, height int) {
 	fmt.Println("not implemented: SetSize:", width, height)
 }
 
+func (w *Window) SetIcon(images interface{}) {
+	// images is actually of type []image.Image, but no need to import image until we actually do something with it
+	fmt.Println("not implemented: SetIcon")
+}
+
 // goFullscreenIfRequested performs webkitRequestFullscreen if it was scheduled. It is called only from
 // user events, because that API will fail if called at any other time.
 func (w *Window) goFullscreenIfRequested() {
@@ -373,6 +388,10 @@ func (m *Monitor) GetVideoMode() *VidMode {
 func GetPrimaryMonitor() *Monitor {
 	// TODO: Implement real functionality.
 	return &Monitor{}
+}
+
+func (w *Window) SetMonitor(monitor *Monitor, xpos, ypos, width, height, refreshRate int) {
+	// TODO: Implement real functionality.
 }
 
 func PollEvents() error {
