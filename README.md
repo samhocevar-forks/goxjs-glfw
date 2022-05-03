@@ -1,7 +1,7 @@
 glfw
 ====
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/goxjs/glfw.svg)](https://pkg.go.dev/github.com/goxjs/glfw)
+[![Go Reference](https://pkg.go.dev/badge/github.com/fyne-io/glfw-js.svg)](https://pkg.go.dev/github.com/fyne-io/glfw-js)
 
 Package glfw experimentally provides a glfw-like API
 with desktop (via glfw) and browser (via HTML5 canvas) backends.
@@ -14,7 +14,7 @@ Installation
 ------------
 
 ```bash
-go get github.com/goxjs/glfw
+go get github.com/fyne-io/glfw-js
 ```
 
 Directories

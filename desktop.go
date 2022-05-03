@@ -1,3 +1,4 @@
+//go:build !js
 // +build !js
 
 package glfw
@@ -355,6 +356,8 @@ const (
 	CursorMode             = InputMode(glfw.CursorMode)
 	StickyKeysMode         = InputMode(glfw.StickyKeysMode)
 	StickyMouseButtonsMode = InputMode(glfw.StickyMouseButtonsMode)
+	LockKeyMods            = InputMode(glfw.LockKeyMods)
+	RawMouseMotion         = InputMode(glfw.RawMouseMotion)
 )
 
 const (
@@ -391,6 +394,14 @@ func PostEmptyEvent() {
 
 func DefaultWindowHints() {
 	glfw.DefaultWindowHints()
+}
+
+func (w *Window) SetClipboardString(str string) {
+	glfw.SetClipboardString(str)
+}
+
+func (w *Window) GetClipboardString() (string, error) {
+	return glfw.GetClipboardString(), nil
 }
 
 type CloseCallback func(w *Window)
