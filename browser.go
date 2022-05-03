@@ -779,6 +779,66 @@ const (
 	MouseButtonMiddle = MouseButton3
 )
 
+type Joystick int
+
+const (
+	Joystick1  Joystick = 1
+	Joystick2  Joystick = 2
+	Joystick3  Joystick = 3
+	Joystick4  Joystick = 4
+	Joystick5  Joystick = 5
+	Joystick6  Joystick = 6
+	Joystick7  Joystick = 7
+	Joystick8  Joystick = 8
+	Joystick9  Joystick = 9
+	Joystick10 Joystick = 10
+	Joystick11 Joystick = 11
+	Joystick12 Joystick = 12
+	Joystick13 Joystick = 13
+	Joystick14 Joystick = 14
+	Joystick15 Joystick = 15
+	Joystick16 Joystick = 16
+
+	JoystickLast = Joystick16
+)
+
+type GamepadAxis int
+
+const (
+        AxisLeftX        GamepadAxis = 1
+        AxisLeftY        GamepadAxis = 2
+        AxisRightX       GamepadAxis = 3
+        AxisRightY       GamepadAxis = 4
+        AxisLeftTrigger  GamepadAxis = 5
+        AxisRightTrigger GamepadAxis = 6
+        AxisLast         GamepadAxis = 7
+)
+
+type GamepadButton int
+
+const (
+        ButtonA           GamepadButton = 1
+        ButtonB           GamepadButton = 2
+        ButtonX           GamepadButton = 3
+        ButtonY           GamepadButton = 4
+        ButtonLeftBumper  GamepadButton = 5
+        ButtonRightBumper GamepadButton = 6
+        ButtonBack        GamepadButton = 7
+        ButtonStart       GamepadButton = 8
+        ButtonGuide       GamepadButton = 9
+        ButtonLeftThumb   GamepadButton = 10
+        ButtonRightThumb  GamepadButton = 11
+        ButtonDpadUp      GamepadButton = 12
+        ButtonDpadRight   GamepadButton = 13
+        ButtonDpadDown    GamepadButton = 14
+        ButtonDpadLeft    GamepadButton = 15
+        ButtonLast        GamepadButton = 16
+        ButtonCross       GamepadButton = 17
+        ButtonCircle      GamepadButton = 18
+        ButtonSquare      GamepadButton = 19
+        ButtonTriangle    GamepadButton = 20
+)
+
 type Action int
 
 const (
@@ -811,6 +871,26 @@ const (
 	ModAlt
 	ModSuper
 )
+
+func (joy Joystick) IsPresent() bool {
+	// TODO: Implement.
+	return false
+}
+
+func (joy Joystick) GetGamepadName() string {
+	// TODO: Implement.
+	return "Gamepad"
+}
+
+func (joy Joystick) GetButtons() []Action {
+	// TODO: Implement.
+	return make([]Action, 0)
+}
+
+func (joy Joystick) GetAxes() []float32 {
+	// TODO: Implement.
+	return make([]float32, 0)
+}
 
 // Open opens a named asset. It's the caller's responsibility to close it when done.
 func Open(name string) (io.ReadCloser, error) {
