@@ -762,22 +762,22 @@ const (
 type Joystick int
 
 const (
-	Joystick1  Joystick = 1
-	Joystick2  Joystick = 2
-	Joystick3  Joystick = 3
-	Joystick4  Joystick = 4
-	Joystick5  Joystick = 5
-	Joystick6  Joystick = 6
-	Joystick7  Joystick = 7
-	Joystick8  Joystick = 8
-	Joystick9  Joystick = 9
-	Joystick10 Joystick = 10
-	Joystick11 Joystick = 11
-	Joystick12 Joystick = 12
-	Joystick13 Joystick = 13
-	Joystick14 Joystick = 14
-	Joystick15 Joystick = 15
-	Joystick16 Joystick = 16
+	Joystick1 Joystick = iota
+	Joystick2
+	Joystick3
+	Joystick4
+	Joystick5
+	Joystick6
+	Joystick7
+	Joystick8
+	Joystick9
+	Joystick10
+	Joystick11
+	Joystick12
+	Joystick13
+	Joystick14
+	Joystick15
+	Joystick16
 
 	JoystickLast = Joystick16
 )
@@ -785,38 +785,40 @@ const (
 type GamepadAxis int
 
 const (
-        AxisLeftX        GamepadAxis = 1
-        AxisLeftY        GamepadAxis = 2
-        AxisRightX       GamepadAxis = 3
-        AxisRightY       GamepadAxis = 4
-        AxisLeftTrigger  GamepadAxis = 5
-        AxisRightTrigger GamepadAxis = 6
-        AxisLast         GamepadAxis = 7
+	AxisLeftX GamepadAxis = iota
+	AxisLeftY
+	AxisRightX
+	AxisRightY
+	AxisLeftTrigger
+	AxisRightTrigger
+
+	AxisLast = AxisRightTrigger
 )
 
 type GamepadButton int
 
 const (
-        ButtonA           GamepadButton = 1
-        ButtonB           GamepadButton = 2
-        ButtonX           GamepadButton = 3
-        ButtonY           GamepadButton = 4
-        ButtonLeftBumper  GamepadButton = 5
-        ButtonRightBumper GamepadButton = 6
-        ButtonBack        GamepadButton = 7
-        ButtonStart       GamepadButton = 8
-        ButtonGuide       GamepadButton = 9
-        ButtonLeftThumb   GamepadButton = 10
-        ButtonRightThumb  GamepadButton = 11
-        ButtonDpadUp      GamepadButton = 12
-        ButtonDpadRight   GamepadButton = 13
-        ButtonDpadDown    GamepadButton = 14
-        ButtonDpadLeft    GamepadButton = 15
-        ButtonLast        GamepadButton = 16
-        ButtonCross       GamepadButton = 17
-        ButtonCircle      GamepadButton = 18
-        ButtonSquare      GamepadButton = 19
-        ButtonTriangle    GamepadButton = 20
+	ButtonA GamepadButton = iota
+	ButtonB
+	ButtonX
+	ButtonY
+	ButtonLeftBumper
+	ButtonRightBumper
+	ButtonBack
+	ButtonStart
+	ButtonGuide
+	ButtonLeftThumb
+	ButtonRightThumb
+	ButtonDpadUp
+	ButtonDpadRight
+	ButtonDpadDown
+	ButtonDpadLeft
+
+	ButtonLast     = ButtonDpadLeft
+	ButtonCross    = ButtonA
+	ButtonCircle   = ButtonB
+	ButtonSquare   = ButtonX
+	ButtonTriangle = ButtonY
 )
 
 type Action int
