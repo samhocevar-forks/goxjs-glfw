@@ -795,6 +795,68 @@ const (
 	MouseButtonMiddle = MouseButton3
 )
 
+type Joystick int
+
+const (
+	Joystick1 Joystick = iota
+	Joystick2
+	Joystick3
+	Joystick4
+	Joystick5
+	Joystick6
+	Joystick7
+	Joystick8
+	Joystick9
+	Joystick10
+	Joystick11
+	Joystick12
+	Joystick13
+	Joystick14
+	Joystick15
+	Joystick16
+
+	JoystickLast = Joystick16
+)
+
+type GamepadAxis int
+
+const (
+	AxisLeftX GamepadAxis = iota
+	AxisLeftY
+	AxisRightX
+	AxisRightY
+	AxisLeftTrigger
+	AxisRightTrigger
+
+	AxisLast = AxisRightTrigger
+)
+
+type GamepadButton int
+
+const (
+	ButtonA GamepadButton = iota
+	ButtonB
+	ButtonX
+	ButtonY
+	ButtonLeftBumper
+	ButtonRightBumper
+	ButtonBack
+	ButtonStart
+	ButtonGuide
+	ButtonLeftThumb
+	ButtonRightThumb
+	ButtonDpadUp
+	ButtonDpadRight
+	ButtonDpadDown
+	ButtonDpadLeft
+
+	ButtonLast     = ButtonDpadLeft
+	ButtonCross    = ButtonA
+	ButtonCircle   = ButtonB
+	ButtonSquare   = ButtonX
+	ButtonTriangle = ButtonY
+)
+
 type Action int
 
 const (
@@ -827,6 +889,26 @@ const (
 	ModAlt
 	ModSuper
 )
+
+func (joy Joystick) IsPresent() bool {
+	// TODO: Implement.
+	return false
+}
+
+func (joy Joystick) GetGamepadName() string {
+	// TODO: Implement.
+	return "Gamepad"
+}
+
+func (joy Joystick) GetButtons() []Action {
+	// TODO: Implement.
+	return make([]Action, 0)
+}
+
+func (joy Joystick) GetAxes() []float32 {
+	// TODO: Implement.
+	return make([]float32, 0)
+}
 
 // Open opens a named asset. It's the caller's responsibility to close it when done.
 func Open(name string) (io.ReadCloser, error) {
