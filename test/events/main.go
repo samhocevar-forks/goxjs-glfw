@@ -462,7 +462,7 @@ func main() {
 	window.SetScrollCallback(ScrollCallback)
 	window.SetKeyCallback(KeyCallback)
 	window.SetCharCallback(CharCallback)
-	window.SetCharModsCallback(CharModsCallback)
+	window.SetCharModsCallback(CharModsCallback) //lint:ignore SA1019 We want to test here until it is removed.
 	window.SetDropCallback(DropCallback)
 
 	fmt.Println("Main loop starting.")
