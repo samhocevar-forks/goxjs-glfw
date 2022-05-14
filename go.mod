@@ -1,4 +1,4 @@
-module github.com/fyne-io/glfw-js
+module github.com/samhocevar-forks/goxjs-glfw
 
 go 1.14
 
