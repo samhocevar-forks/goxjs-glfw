@@ -557,6 +557,9 @@ func (w *Window) SetCursorEnterCallback(cbfun CursorEnterCallback) (previous Cur
 
 type CharModsCallback func(w *Window, char rune, mods ModifierKey)
 
+// SetCharModsCallback is a wrapper around the GFLW window SetCharModsCallback method.
+//
+// Deprecated: Scheduled for removal in GLFW version 4.0.
 func (w *Window) SetCharModsCallback(cbfun CharModsCallback) (previous CharModsCallback) {
 	wrappedCbfun := func(_ *glfw.Window, char rune, mods glfw.ModifierKey) {
 		cbfun(w, char, ModifierKey(mods))
